@@ -1,0 +1,33 @@
+diff --git a/axlearn/cloud/gcp/jobset_utils.py b/axlearn/cloud/gcp/jobset_utils.py
+index 10f606f..c3e15a9 100644
+--- a/axlearn/cloud/gcp/jobset_utils.py
++++ b/axlearn/cloud/gcp/jobset_utils.py
+@@ -582,7 +582,6 @@ class TPUReplicatedJob(SingleReplicatedJob):
+             labels.update({"bastion-tier": "reserved"})
+         else:
+             logging.info("Found tier=%s in env. Using spot quota", tier)
+-            selector.update({"cloud.google.com/gke-spot": "true"})
+             tolerations.append(
+                 {
+                     "key": "cloud.google.com/gke-spot",
+@@ -608,20 +607,6 @@ class TPUReplicatedJob(SingleReplicatedJob):
+         if cfg.enable_pre_provisioner:
+             # Used by pre-provisioner.
+             selector.update({PRE_PROVISIONER_LABEL: cfg.name})
+-        else:
+-            # Used by GCP auto-provisioner.
+-            selector.update(
+-                {
+-                    # NOTE: This is an arbitrary key, with a value that must be unique to the
+-                    # jobset. This forces the jobset to be associated with its own node pool;
+-                    # without this, the TPU provisioner may create a node pool and the scheduler may
+-                    # schedule a different jobset onto the node pool, which can cause conflicts if
+-                    # the original jobset attempts to restart (node pool conflict). This is more
+-                    # reliable at the moment but doesn't take advantage of node pool sharing. GCP is
+-                    # working on a fix.
+-                    "provisioner-nodepool-id": cfg.name,
+-                }
+-            )
+ 
+         if os.environ.get(BASTION_JOB_VERSION_ENV_VAR):
+             labels.update({BASTION_JOB_VERSION_LABEL: os.environ.get(BASTION_JOB_VERSION_ENV_VAR)})

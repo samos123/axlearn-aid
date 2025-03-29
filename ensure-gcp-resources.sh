@@ -150,6 +150,7 @@ fi
 echo "[AXLearn Config] Ensuring configuration in '$AXLEARN_CONFIG_PATH'..."
 
 # Define the config block content using printf
+# TODO ensure label matches actual tpu type used
 AXLEARN_CONFIG_BLOCK=$(printf "%s\n" \
   "$CONFIG_SECTION_HEADER" \
   "project = \"$PROJECT_ID\"" \
