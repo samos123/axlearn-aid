@@ -1,15 +1,13 @@
 #!/bin/bash
 
-# Exit immediately if a command exits with a non-zero status.
-# Print commands and their arguments as they are executed.
-set -ex
-
 # --- Configuration & Defaults ---
 GKE_CLUSTER_NAME_DEFAULT="${USER}-axlearn" # Default cluster name using system username
 GCP_REGION="us-east5"
 GCP_ZONE="us-east5-b"
 CPU_NODE_MACHINE_TYPE="e2-standard-8" # Updated default CPU machine type
 CPU_NODE_COUNT_DEFAULT="2" # Default CPU node count
+GCP_NETWORK_NAME_DEFAULT="${USER}-net" # Default network name
+GCP_SUBNET_NAME_DEFAULT="${USER}-subnet" # Default subnet name
 TPU_NODEPOOL_NAME_DEFAULT="tpu-v6e-4x4-pool"
 TPU_TOPOLOGY_DEFAULT="4x4"
 TPU_MACHINE_TYPE_DEFAULT="ct6e-standard-4t"
@@ -26,6 +24,8 @@ TPU_NODEPOOL_NAME="${TPU_NODEPOOL_NAME:-$TPU_NODEPOOL_NAME_DEFAULT}"
 TPU_TOPOLOGY="${TPU_TOPOLOGY:-$TPU_TOPOLOGY_DEFAULT}"
 TPU_MACHINE_TYPE="${TPU_MACHINE_TYPE:-$TPU_MACHINE_TYPE_DEFAULT}"
 USE_SPOT_TPU="${USE_SPOT_TPU:-$USE_SPOT_TPU_DEFAULT}" # Allow overriding Spot usage
+GCP_NETWORK_NAME="${GCP_NETWORK_NAME:-$GCP_NETWORK_NAME_DEFAULT}" # Allow overriding network name
+GCP_SUBNET_NAME="${GCP_SUBNET_NAME:-$GCP_SUBNET_NAME_DEFAULT}" # Allow overriding subnet name
 AXLEARN_CONFIG_PATH="${AXLEARN_CONFIG_PATH:-$AXLEARN_CONFIG_PATH_DEFAULT}"
 
 # Determine Project ID
@@ -50,6 +50,8 @@ echo "--- Ensuring GCP Resources ---"
 echo "Project ID:          $PROJECT_ID"
 echo "Region:              $GCP_REGION"
 echo "Zone:                $GCP_ZONE"
+echo "Network:             $GCP_NETWORK_NAME"
+echo "Subnet:              $GCP_SUBNET_NAME"
 echo "GKE Cluster:         $GKE_CLUSTER_NAME"
 echo "CPU Machine Type:    $CPU_NODE_MACHINE_TYPE"
 echo "CPU Node Count:      $CPU_NODE_COUNT"
@@ -64,6 +66,29 @@ echo "Jobset Version:      $JOBSET_VERSION"
 echo "AXLearn Config Path: $AXLEARN_CONFIG_PATH"
 echo "-----------------------------"
 
+# --- VPC Network & Subnet ---
+echo "[Network] Checking for network '$GCP_NETWORK_NAME'..."
+if ! gcloud compute networks describe "$GCP_NETWORK_NAME" --project "$PROJECT_ID" &> /dev/null; then
+  gcloud compute networks create "$GCP_NETWORK_NAME" \
+    --project "$PROJECT_ID" \
+    --subnet-mode=custom
+  echo "[Network] Network '$GCP_NETWORK_NAME' created."
+else
+  echo "[Network] Network '$GCP_NETWORK_NAME' already exists."
+fi
+
+echo "[Subnet] Checking for subnet '$GCP_SUBNET_NAME' in network '$GCP_NETWORK_NAME' region '$GCP_REGION'..."
+if ! gcloud compute networks subnets describe "$GCP_SUBNET_NAME" --region "$GCP_REGION" --project "$PROJECT_ID" &> /dev/null; then
+  gcloud compute networks subnets create "$GCP_SUBNET_NAME" \
+    --project "$PROJECT_ID" \
+    --network "$GCP_NETWORK_NAME" \
+    --region "$GCP_REGION" \
+    --range=10.1.0.0/20 # Default range, adjust if needed
+  echo "[Subnet] Subnet '$GCP_SUBNET_NAME' created."
+else
+  echo "[Subnet] Subnet '$GCP_SUBNET_NAME' already exists."
+fi
+
 # --- GKE Cluster & Nodepools ---
 echo "[GKE] Checking for cluster '$GKE_CLUSTER_NAME' in region '$GCP_REGION'..."
 if ! gcloud container clusters describe "$GKE_CLUSTER_NAME" --region "$GCP_REGION" --project "$PROJECT_ID" &> /dev/null; then
@@ -73,6 +98,10 @@ if ! gcloud container clusters describe "$GKE_CLUSTER_NAME" --region "$GCP_REGIO
     --machine-type "$CPU_NODE_MACHINE_TYPE" \
     --num-nodes="$CPU_NODE_COUNT" \
     --node-locations "$GCP_ZONE" \
+    --network "$GCP_NETWORK_NAME" \
+    --subnetwork "$GCP_SUBNET_NAME" \
+    --default-max-pods-per-node 31 \
+    --enable-ip-alias \
     --release-channel=rapid
   echo "[GKE] Cluster '$GKE_CLUSTER_NAME' created."
 else
@@ -80,7 +109,10 @@ else
 fi
 
 echo "[GKE] Checking for TPU nodepool '$TPU_NODEPOOL_NAME' in cluster '$GKE_CLUSTER_NAME'..."
-if ! gcloud container node-pools describe "$TPU_NODEPOOL_NAME" --cluster "$GKE_CLUSTER_NAME" --region "$GCP_REGION" --project "$PROJECT_ID" &> /dev/null; then
+# Check if nodepool exists, suppressing output
+gcloud container node-pools describe "$TPU_NODEPOOL_NAME" --cluster "$GKE_CLUSTER_NAME" --region "$GCP_REGION" --project "$PROJECT_ID"
+# Create nodepool if the describe command failed (exit status != 0)
+if [[ $? -ne 0 ]]; then
 
   # Calculate num_nodes based on topology
   IFS='x' read -r dim1 dim2 <<< "$TPU_TOPOLOGY"
