@@ -25,7 +25,7 @@ axlearn gcp config activate
 Now launch a job:
 ```
 export RANDOM_CHARS=$(LC_CTYPE=C openssl rand -base64 12 | tr -dc 'a-z0-9' | head -c 3 ; echo)
-export CLUSTER=${CLUSTER:-$USER-axlearn2}
+export CLUSTER=${CLUSTER:-$USER-axlearn1}
 export NAME=$USER-$RANDOM_CHARS
 export BASTION_TIER=disabled
 export DEFAULT_PROJECT_ID=$(gcloud config get project)
