@@ -21,14 +21,24 @@ Activate the AXLearn config
 axlearn gcp config activate
 ```
 
-Apply the following patch:
-```sh
-git apply remove-node-selector.patch
-```
 
 Now launch a job:
 ```
-BASTION_TIER=1 axlearn gcp gke start --cluster=$USER-axlearn \
+export RANDOM_CHARS=$(LC_CTYPE=C openssl rand -base64 12 | tr -dc 'a-z0-9' | head -c 3 ; echo)
+export CLUSTER=${CLUSTER:-$USER-axlearn2}
+export NAME=$USER-$RANDOM_CHARS
+export BASTION_TIER=disabled
+export DEFAULT_PROJECT_ID=$(gcloud config get project)
+export PROJECT_ID=${PROJECT_ID:-$DEFAULT_PROJECT_ID}
+export BASTION_TIER=disabled
+
+# Workaround for bug in AXLearn right now: https://github.com/apple/axlearn/issues/1095
+axlearn gcp bundle --name=$NAME \
+        --bundler_spec=allow_dirty=True \
+        --bundler_type=artifactregistry --bundler_spec=image=tpu \
+        --bundler_spec=dockerfile=Dockerfile --bundler_spec=target=tpu
+
+axlearn gcp gke start --cluster=$CLUSTER --name=$NAME \
         --instance_type=tpu-v6e-16 \
         --num_replicas=1 \
         --bundler_spec=allow_dirty=True \
