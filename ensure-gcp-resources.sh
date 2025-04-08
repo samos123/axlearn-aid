@@ -102,6 +102,7 @@ if ! gcloud container clusters describe "$GKE_CLUSTER_NAME" --region "$GCP_REGIO
     --subnetwork "$GCP_SUBNET_NAME" \
     --default-max-pods-per-node 31 \
     --enable-ip-alias \
+    --scopes "https://www.googleapis.com/auth/cloud-platform" \
     --release-channel=rapid
   echo "[GKE] Cluster '$GKE_CLUSTER_NAME' created."
 else
@@ -131,6 +132,7 @@ if [[ $? -ne 0 ]]; then
     --machine-type "$TPU_MACHINE_TYPE"
     --tpu-topology "$TPU_TOPOLOGY"
     --enable-gvnic # Recommended for TPUs
+    --scopes "https://www.googleapis.com/auth/cloud-platform"
   )
   # Add --spot flag if USE_SPOT_TPU is true
   if [[ "$USE_SPOT_TPU" == "true" ]]; then
