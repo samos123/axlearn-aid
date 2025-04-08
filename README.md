@@ -21,6 +21,23 @@ Activate the AXLearn config
 axlearn gcp config activate
 ```
 
+Modify the training config for Fuji 7B in `fuji.py` to set global batch size to 32:
+```diff
+diff --git a/axlearn/experiments/text/gpt/fuji.py b/axlearn/experiments/text/gpt/fuji.py
+index dc95d61..7f6fab4 100644
+--- a/axlearn/experiments/text/gpt/fuji.py
++++ b/axlearn/experiments/text/gpt/fuji.py
+@@ -374,7 +374,7 @@ def get_trainer_kwargs(
+             ),
+             learner_kwargs=dict(peak_lr=3e-4, weight_decay=0.1),
+             max_sequence_length=max_sequence_length,
+-            train_batch_size=train_batch_size,
++            train_batch_size=32,
+             max_step=max_step,
+             mesh_shape=mesh_shape_from_axes(data=-1, fsdp=8),
+             mesh_rules=(
+```
+
 
 Now launch a job:
 ```
@@ -45,7 +62,7 @@ axlearn gcp gke start --cluster=$CLUSTER --name=$NAME \
         --bundler_type=artifactregistry --bundler_spec=image=tpu \
         --bundler_spec=dockerfile=Dockerfile --bundler_spec=target=tpu \
         -- python3 -m axlearn.common.launch_trainer_main \
-        --module=text.gpt.c4_trainer --config=fuji-7B-v2-flash-single-host \
+        --module=text.gpt.c4_trainer --config=fuji-7B-v2-flash \
           --trainer_dir=gs://$PROJECT_ID-axlearn/$USER-v6e-7b-1/ \
           --data_dir=gs://axlearn-public/tensorflow_datasets  \
           --jax_backend=tpu \
