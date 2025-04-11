@@ -69,3 +69,50 @@ axlearn gcp gke start --cluster=$CLUSTER --name=$NAME \
           --mesh_selector=tpu-v6e-16 \
           --trace_at_steps=3
 ```
+
+## Configuring Github action self-hosted runner
+
+1. Create a GKE cluster with an autoscaling spot nodepool for a3-highgpu-1g (scale to 0)
+2. Deploy the GitHub self-hosted action K8s Operator Arc using Quickstart
+
+```
+NAMESPACE="arc-systems"
+helm install arc \
+    --namespace "${NAMESPACE}" \
+    --create-namespace \
+    oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set-controller
+```
+
+3. Deploy an arc runner set for H100
+
+values-arc-h100.yaml:
+```
+template:
+  spec:
+    nodeSelector:
+      cloud.google.com/gke-accelerator: nvidia-h100-80gb
+    containers:
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest
+        command: ["/home/runner/run.sh"]
+        resources:
+          limits:
+            nvidia.com/gpu: 1
+```
+
+deploy command:
+```
+INSTALLATION_NAME="arc-runner-h100"
+NAMESPACE="arc-runners"
+GITHUB_CONFIG_URL="https://github.com/samos123/axlearn"
+helm upgrade --install "${INSTALLATION_NAME}" \
+    --namespace "${NAMESPACE}" \
+    --create-namespace \
+    --set githubConfigUrl="${GITHUB_CONFIG_URL}" \
+    --set githubConfigSecret.github_token="${GITHUB_PAT}" \
+    -f values-arc-h100.yaml \
+    oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
+```
+
+Now whenever there is a github action triggered, it will schedule a pod which causes the
+nodepool to automatically scale up. So you only pay for 1-2 hours every night.
