@@ -21,6 +21,9 @@ Activate the AXLearn config
 axlearn gcp config activate
 ```
 
+Launch an interactive job:
+
+
 Modify the training config for Fuji 7B in `fuji.py` to set global batch size to 32:
 ```diff
 diff --git a/axlearn/experiments/text/gpt/fuji.py b/axlearn/experiments/text/gpt/fuji.py
@@ -44,7 +47,7 @@ Now launch a job:
 export CLUSTER=${CLUSTER:-$USER-axlearn1}
 export BASTION_TIER=disabled
 
-axlearn gcp launch --cluster=$CLUSTER \
+axlearn gcp launch run --cluster=$CLUSTER \
         --runner_name gke_tpu_single \
         --name=$USER \
         --instance_type=tpu-v6e-16 \
