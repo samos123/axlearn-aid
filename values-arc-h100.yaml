@@ -1,0 +1,17 @@
+maxRunners: 8
+
+
+
+## template is the PodSpec for each runner Pod
+## For reference: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#PodSpec
+template:
+  spec:
+    nodeSelector:
+      cloud.google.com/gke-accelerator: nvidia-h100-80gb
+    containers:
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest
+        command: ["/home/runner/run.sh"]
+        resources:
+          limits:
+            nvidia.com/gpu: 1
