@@ -41,21 +41,12 @@ index dc95d61..7f6fab4 100644
 
 Now launch a job:
 ```
-export RANDOM_CHARS=$(LC_CTYPE=C openssl rand -base64 12 | tr -dc 'a-z0-9' | head -c 3 ; echo)
 export CLUSTER=${CLUSTER:-$USER-axlearn1}
-export NAME=$USER-$RANDOM_CHARS
-export BASTION_TIER=disabled
-export DEFAULT_PROJECT_ID=$(gcloud config get project)
-export PROJECT_ID=${PROJECT_ID:-$DEFAULT_PROJECT_ID}
 export BASTION_TIER=disabled
 
-# Workaround for bug in AXLearn right now: https://github.com/apple/axlearn/issues/1095
-axlearn gcp bundle --name=$NAME \
-        --bundler_spec=allow_dirty=True \
-        --bundler_type=artifactregistry --bundler_spec=image=tpu \
-        --bundler_spec=dockerfile=Dockerfile --bundler_spec=target=tpu
-
-axlearn gcp gke start --cluster=$CLUSTER --name=$NAME \
+axlearn gcp launch --cluster=$CLUSTER \
+        --runner_name gke_tpu_single \
+        --name=$USER \
         --instance_type=tpu-v6e-16 \
         --num_replicas=1 \
         --bundler_spec=allow_dirty=True \
