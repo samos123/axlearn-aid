@@ -21,7 +21,24 @@ Activate the AXLearn config
 axlearn gcp config activate
 ```
 
+Set the environment variables to match your environment:
+```
+export CLUSTER=${CLUSTER:-$USER-axlearn}
+export BASTION_TIER=disabled
+```
+
 Launch an interactive job:
+```
+axlearn gcp launch run --cluster=$CLUSTER \
+        --runner_name gke_tpu_single \
+        --name=$USER \
+        --instance_type=tpu-v6e-16 \
+        --num_replicas=1 \
+        --bundler_spec=allow_dirty=True \
+        --bundler_type=artifactregistry --bundler_spec=image=tpu \
+        --bundler_spec=dockerfile=Dockerfile --bundler_spec=target=tpu \
+        -- sleep infinity;
+```
 
 
 Modify the training config for Fuji 7B in `fuji.py` to set global batch size to 32:
@@ -44,7 +61,7 @@ index dc95d61..7f6fab4 100644
 
 Now launch a job:
 ```
-export CLUSTER=${CLUSTER:-$USER-axlearn1}
+export CLUSTER=${CLUSTER:-$USER-axlearn}
 export BASTION_TIER=disabled
 
 axlearn gcp launch run --cluster=$CLUSTER \
