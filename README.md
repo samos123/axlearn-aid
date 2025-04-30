@@ -28,6 +28,7 @@ Set the environment variables to match your environment:
 ```
 export CLUSTER=${CLUSTER:-$USER-axlearn}
 export BASTION_TIER=disabled
+export PROJECT_ID=$(gcloud config get project)
 ```
 
 Launch an interactive job:
