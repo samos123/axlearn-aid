@@ -35,8 +35,11 @@ Launch an interactive job:
 ```
 axlearn gcp bundle --name=$USER \
         --bundler_spec=allow_dirty=True \
-        --bundler_type=artifactregistry --bundler_spec=image=gpu \
-        --bundler_spec=dockerfile=Dockerfile --bundler_spec=target=gpu
+        --bundler_type=artifactregistry \
+        --bundler_spec=dockerfile=Dockerfile \
+        --bundler_spec=image=tpu \
+        --bundler_spec=target=tpu
+
 axlearn gcp launch run --cluster=$CLUSTER \
         --runner_name gke_tpu_single \
         --name=$USER \
