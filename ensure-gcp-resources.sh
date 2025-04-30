@@ -217,6 +217,7 @@ AXLEARN_CONFIG_BLOCK=$(printf "%s\n" \
   "project = \"$PROJECT_ID\"" \
   "region = \"$GCP_REGION\"" \
   "zone = \"$GCP_ZONE\"" \
+  "gke_cluster = \"$GKE_CLUSTER_NAME\"" \
   "cluster = \"$GKE_CLUSTER_NAME\"" \
   "labels = \"tpu-v6e\"" \
   "docker_repo = \"$DOCKER_REPO\"" \
