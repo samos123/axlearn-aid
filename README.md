@@ -14,6 +14,9 @@ export CLUSTER=$USER-axlearn
 ./ensure-gcp-resources.sh
 ```
 
+The script by default creates a v6e-16 nodepool using spot and a cpu nodepool named
+`pathways-head`. The pathways nodepool name needs to exactly match.
+
 ## Launching a job
 
 Activate the AXLearn config
