@@ -18,7 +18,7 @@ ARTIFACT_REPO_LOCATION="us"
 JOBSET_VERSION="v0.8.1"
 
 # Use environment variables if set, otherwise use defaults
-GKE_CLUSTER_NAME="${GKE_CLUSTER_NAME:-$GKE_CLUSTER_NAME_DEFAULT}"
+GKE_CLUSTER_NAME="${CLUSTER:-$GKE_CLUSTER_NAME_DEFAULT}"
 CPU_NODE_COUNT="${CPU_NODE_COUNT:-$CPU_NODE_COUNT_DEFAULT}" # Allow overriding CPU node count
 TPU_NODEPOOL_NAME="${TPU_NODEPOOL_NAME:-$TPU_NODEPOOL_NAME_DEFAULT}"
 TPU_TOPOLOGY="${TPU_TOPOLOGY:-$TPU_TOPOLOGY_DEFAULT}"
@@ -27,6 +27,12 @@ USE_SPOT_TPU="${USE_SPOT_TPU:-$USE_SPOT_TPU_DEFAULT}" # Allow overriding Spot us
 GCP_NETWORK_NAME="${GCP_NETWORK_NAME:-$GCP_NETWORK_NAME_DEFAULT}" # Allow overriding network name
 GCP_SUBNET_NAME="${GCP_SUBNET_NAME:-$GCP_SUBNET_NAME_DEFAULT}" # Allow overriding subnet name
 AXLEARN_CONFIG_PATH="${AXLEARN_CONFIG_PATH:-$AXLEARN_CONFIG_PATH_DEFAULT}"
+
+# Pathways Head Nodepool Configuration
+PATHWAYS_HEAD_NODEPOOL_NAME="pathways-head"
+PATHWAYS_HEAD_MACHINE_TYPE="n2-standard-32"
+PATHWAYS_HEAD_MIN_NODES=0
+PATHWAYS_HEAD_MAX_NODES=10
 
 # Determine Project ID
 if [[ -z "$PROJECT_ID" ]]; then
@@ -146,6 +152,27 @@ if [[ $? -ne 0 ]]; then
   echo "[GKE] TPU nodepool '$TPU_NODEPOOL_NAME' created."
 else
   echo "[GKE] TPU nodepool '$TPU_NODEPOOL_NAME' already exists."
+fi
+
+echo "[GKE] Checking for Pathways Head nodepool '$PATHWAYS_HEAD_NODEPOOL_NAME' in cluster '$GKE_CLUSTER_NAME'..."
+# Check if nodepool exists, suppressing output
+gcloud container node-pools describe "$PATHWAYS_HEAD_NODEPOOL_NAME" --cluster "$GKE_CLUSTER_NAME" --region "$GCP_REGION" --project "$PROJECT_ID" &> /dev/null
+# Create nodepool if the describe command failed (exit status != 0)
+if [[ $? -ne 0 ]]; then
+  echo "[GKE] Creating Pathways Head nodepool '$PATHWAYS_HEAD_NODEPOOL_NAME'..."
+  gcloud container node-pools create "$PATHWAYS_HEAD_NODEPOOL_NAME" \
+    --project "$PROJECT_ID" \
+    --cluster "$GKE_CLUSTER_NAME" \
+    --location "$GCP_REGION" \
+    --node-locations "$GCP_ZONE" \
+    --machine-type "$PATHWAYS_HEAD_MACHINE_TYPE" \
+    --enable-autoscaling \
+    --min-nodes "$PATHWAYS_HEAD_MIN_NODES" \
+    --max-nodes "$PATHWAYS_HEAD_MAX_NODES" \
+    --scopes "https://www.googleapis.com/auth/cloud-platform"
+  echo "[GKE] Pathways Head nodepool '$PATHWAYS_HEAD_NODEPOOL_NAME' created."
+else
+  echo "[GKE] Pathways Head nodepool '$PATHWAYS_HEAD_NODEPOOL_NAME' already exists."
 fi
 
 # --- Jobset Controller Installation ---

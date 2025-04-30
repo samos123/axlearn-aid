@@ -10,7 +10,7 @@ Features:
 You can run the following command to bring up GKE cluster, GAR, GCS bucket.
 
 ```sh
-export GKE_CLUSTER_NAME=$USER-axlearn
+export CLUSTER=$USER-axlearn
 ./ensure-gcp-resources.sh
 ```
 
@@ -40,6 +40,7 @@ axlearn gcp launch run --cluster=$CLUSTER \
         -- sleep infinity;
 ```
 
+### Launching a Fuji/Llama 7B job
 
 Modify the training config for Fuji 7B in `fuji.py` to set global batch size to 32:
 ```diff
@@ -61,9 +62,6 @@ index dc95d61..7f6fab4 100644
 
 Now launch a job:
 ```
-export CLUSTER=${CLUSTER:-$USER-axlearn}
-export BASTION_TIER=disabled
-
 axlearn gcp launch run --cluster=$CLUSTER \
         --runner_name gke_tpu_single \
         --name=$USER \
@@ -80,6 +78,8 @@ axlearn gcp launch run --cluster=$CLUSTER \
           --mesh_selector=tpu-v6e-16 \
           --trace_at_steps=3
 ```
+
+### Launching a Fuji 7B job with Pathways
 
 ## Configuring Github action self-hosted runner
 
