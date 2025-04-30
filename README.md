@@ -60,7 +60,7 @@ index dc95d61..7f6fab4 100644
 ```
 
 
-Now launch a job:
+Now launch a job McJax:
 ```
 axlearn gcp launch run --cluster=$CLUSTER \
         --runner_name gke_tpu_single \
@@ -80,6 +80,25 @@ axlearn gcp launch run --cluster=$CLUSTER \
 ```
 
 ### Launching a Fuji 7B job with Pathways
+
+Launching with Pathways:
+```
+axlearn gcp launch run --cluster=$CLUSTER \
+        --runner_name gke_tpu_pathways \
+        --name=$USER \
+        --instance_type=tpu-v6e-16 \
+        --num_replicas=1 \
+        --bundler_spec=allow_dirty=True \
+        --bundler_type=artifactregistry --bundler_spec=image=tpu \
+        --bundler_spec=dockerfile=Dockerfile --bundler_spec=target=tpu \
+        -- python3 -m axlearn.common.launch_trainer_main \
+        --module=text.gpt.c4_trainer --config=fuji-7B-v2-flash \
+          --trainer_dir=gs://$PROJECT_ID-axlearn/$USER-v6e-7b-1/ \
+          --data_dir=gs://axlearn-public/tensorflow_datasets  \
+          --jax_backend=proxy \
+          --mesh_selector=tpu-v6e-16 \
+          --trace_at_steps=3
+```
 
 ## Configuring Github action self-hosted runner
 
