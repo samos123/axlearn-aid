@@ -170,7 +170,8 @@ if [[ $? -ne 0 ]]; then
     --enable-autoscaling \
     --min-nodes "$PATHWAYS_HEAD_MIN_NODES" \
     --max-nodes "$PATHWAYS_HEAD_MAX_NODES" \
-    --scopes "https://www.googleapis.com/auth/cloud-platform"
+    --scopes "https://www.googleapis.com/auth/cloud-platform" \
+    --node-labels=axlearn/nodepool_type=workload
   echo "[GKE] Pathways Head nodepool '$PATHWAYS_HEAD_NODEPOOL_NAME' created."
 else
   echo "[GKE] Pathways Head nodepool '$PATHWAYS_HEAD_NODEPOOL_NAME' already exists."
