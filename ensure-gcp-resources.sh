@@ -108,6 +108,7 @@ if ! gcloud container clusters describe "$GKE_CLUSTER_NAME" --region "$GCP_REGIO
     --subnetwork "$GCP_SUBNET_NAME" \
     --default-max-pods-per-node 31 \
     --enable-ip-alias \
+    --enable-dataplane-v2 --enable-ip-alias --enable-multi-networking \
     --scopes "https://www.googleapis.com/auth/cloud-platform" \
     --release-channel=rapid
   echo "[GKE] Cluster '$GKE_CLUSTER_NAME' created."
