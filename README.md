@@ -3,8 +3,7 @@
 Tools to improve productivity around using AXLearn inside of GCP.
 
 Features:
-* Script to create GCP resources (GKE cluster, GAR, GCS bucket) and create an axlearn config
-* Apply needed patches to AXLearn so it works on both on-demand and spot
+* Script to create GCP resources (GKE cluster, GAR, GCS bucket) and automatically create AXLearn config for created resources.
 
 ## Creating the GCP resources required
 You can run the following command to bring up GKE cluster, GAR, GCS bucket.
@@ -16,6 +15,24 @@ export CLUSTER=$USER-axlearn
 
 The script by default creates a v6e-16 nodepool using spot and a cpu nodepool named
 `pathways-head`. The pathways nodepool name needs to exactly match.
+
+An AXLearn config for the resources will be written to
+`~/.axlearn.config`.
+
+## Setting up AXLearn
+
+```bash
+git clone https://github.com/apple/axlearn.git
+cd axlearn
+python3.10 -m venv .venv
+source .venv/bin/activate
+pip install -e '.[core,dev,gcp]'
+```
+
+Verify that axlearn has been installed correctly:
+```
+axlearn gcp launch run --help
+```
 
 ## Launching a job
 
