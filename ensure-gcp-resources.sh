@@ -10,6 +10,7 @@ GCP_NETWORK_NAME_DEFAULT="${USER}-net" # Default network name
 GCP_SUBNET_NAME_DEFAULT="${USER}-subnet" # Default subnet name
 TPU_NODEPOOL_NAME_DEFAULT="tpu-v6e-4x4-pool"
 TPU_TOPOLOGY_DEFAULT="4x4"
+TPU_V6E_NODEPOOL_COUNT_DEFAULT="1" # Default number of v6e nodepools
 TPU_MACHINE_TYPE_DEFAULT="ct6e-standard-4t"
 USE_SPOT_TPU_DEFAULT="true" # Default to using Spot VMs for TPUs
 AXLEARN_CONFIG_PATH_DEFAULT="$HOME/.axlearn.config" # Use $HOME which bash expands
@@ -22,6 +23,7 @@ GKE_CLUSTER_NAME="${CLUSTER:-$GKE_CLUSTER_NAME_DEFAULT}"
 CPU_NODE_COUNT="${CPU_NODE_COUNT:-$CPU_NODE_COUNT_DEFAULT}" # Allow overriding CPU node count
 TPU_NODEPOOL_NAME="${TPU_NODEPOOL_NAME:-$TPU_NODEPOOL_NAME_DEFAULT}"
 TPU_TOPOLOGY="${TPU_TOPOLOGY:-$TPU_TOPOLOGY_DEFAULT}"
+TPU_V6E_NODEPOOL_COUNT="${TPU_V6E_NODEPOOL_COUNT:-$TPU_V6E_NODEPOOL_COUNT_DEFAULT}"
 TPU_MACHINE_TYPE="${TPU_MACHINE_TYPE:-$TPU_MACHINE_TYPE_DEFAULT}"
 USE_SPOT_TPU="${USE_SPOT_TPU:-$USE_SPOT_TPU_DEFAULT}" # Allow overriding Spot usage
 GCP_NETWORK_NAME="${GCP_NETWORK_NAME:-$GCP_NETWORK_NAME_DEFAULT}" # Allow overriding network name
@@ -61,7 +63,8 @@ echo "Subnet:              $GCP_SUBNET_NAME"
 echo "GKE Cluster:         $GKE_CLUSTER_NAME"
 echo "CPU Machine Type:    $CPU_NODE_MACHINE_TYPE"
 echo "CPU Node Count:      $CPU_NODE_COUNT"
-echo "TPU Nodepool:        $TPU_NODEPOOL_NAME"
+echo "TPU Nodepool Base:   $TPU_NODEPOOL_NAME"
+echo "TPU v6e Nodepool Count: $TPU_V6E_NODEPOOL_COUNT"
 echo "TPU Machine Type:    $TPU_MACHINE_TYPE"
 echo "TPU Topology:        $TPU_TOPOLOGY"
 echo "TPU Use Spot VMs:    $USE_SPOT_TPU"
@@ -116,44 +119,45 @@ else
   echo "[GKE] Cluster '$GKE_CLUSTER_NAME' already exists."
 fi
 
-echo "[GKE] Checking for TPU nodepool '$TPU_NODEPOOL_NAME' in cluster '$GKE_CLUSTER_NAME'..."
-# Check if nodepool exists, suppressing output
-gcloud container node-pools describe "$TPU_NODEPOOL_NAME" --cluster "$GKE_CLUSTER_NAME" --region "$GCP_REGION" --project "$PROJECT_ID"
-# Create nodepool if the describe command failed (exit status != 0)
-if [[ $? -ne 0 ]]; then
+for i in $(seq 1 "$TPU_V6E_NODEPOOL_COUNT"); do
+  CURRENT_TPU_NODEPOOL_NAME="${TPU_NODEPOOL_NAME}-${i}" # e.g., tpu-v6e-4x4-pool-1
 
-  # Calculate num_nodes based on topology
-  IFS='x' read -r dim1 dim2 <<< "$TPU_TOPOLOGY"
-  # Ensure dimensions are treated as integers for arithmetic
-  num_nodes=$(( (10#$dim1 * 10#$dim2) / 4 ))
-  echo "[GKE] Calculated num_nodes: $num_nodes based on topology $TPU_TOPOLOGY"
+  echo "[GKE] Checking for TPU nodepool '$CURRENT_TPU_NODEPOOL_NAME' in cluster '$GKE_CLUSTER_NAME' (Instance $i of $TPU_V6E_NODEPOOL_COUNT)..."
+  # Check if nodepool exists
+  gcloud container node-pools describe "$CURRENT_TPU_NODEPOOL_NAME" --cluster "$GKE_CLUSTER_NAME" --region "$GCP_REGION" --project "$PROJECT_ID" &> /dev/null # Suppress output for check
 
-  # Construct create command arguments
-  GCLOUD_NODEPOOL_CREATE_ARGS=(
-    "$TPU_NODEPOOL_NAME"
-    --project "$PROJECT_ID"
-    --cluster "$GKE_CLUSTER_NAME"
-    --location "$GCP_REGION"
-    --node-locations "$GCP_ZONE"
-    --num-nodes "$num_nodes" # Use calculated value
-    --machine-type "$TPU_MACHINE_TYPE"
-    --tpu-topology "$TPU_TOPOLOGY"
-    --enable-gvnic # Recommended for TPUs
-    --scopes "https://www.googleapis.com/auth/cloud-platform"
-  )
-  # Add --spot flag if USE_SPOT_TPU is true
-  if [[ "$USE_SPOT_TPU" == "true" ]]; then
-    echo "[GKE] Using Spot VMs for TPU nodepool."
-    GCLOUD_NODEPOOL_CREATE_ARGS+=(--spot)
+  if [[ $? -ne 0 ]]; then
+    # Calculate num_nodes based on topology (this seems to be per-nodepool)
+    IFS='x' read -r dim1 dim2 <<< "$TPU_TOPOLOGY"
+    num_nodes=$(( (10#$dim1 * 10#$dim2) / 4 ))
+    echo "[GKE] Calculated num_nodes: $num_nodes for nodepool '$CURRENT_TPU_NODEPOOL_NAME' based on topology $TPU_TOPOLOGY"
+
+    GCLOUD_NODEPOOL_CREATE_ARGS=(
+      "$CURRENT_TPU_NODEPOOL_NAME" # Use the unique name for this instance
+      --project "$PROJECT_ID"
+      --cluster "$GKE_CLUSTER_NAME"
+      --location "$GCP_REGION"
+      --node-locations "$GCP_ZONE"
+      --num-nodes "$num_nodes"
+      --machine-type "$TPU_MACHINE_TYPE"
+      --tpu-topology "$TPU_TOPOLOGY"
+      --enable-gvnic
+      --scopes "https://www.googleapis.com/auth/cloud-platform"
+    )
+
+    if [[ "$USE_SPOT_TPU" == "true" ]]; then
+      echo "[GKE] Using Spot VMs for TPU nodepool '$CURRENT_TPU_NODEPOOL_NAME'."
+      GCLOUD_NODEPOOL_CREATE_ARGS+=(--spot)
+    else
+      echo "[GKE] Using On-Demand VMs for TPU nodepool '$CURRENT_TPU_NODEPOOL_NAME'."
+    fi
+
+    gcloud container node-pools create "${GCLOUD_NODEPOOL_CREATE_ARGS[@]}"
+    echo "[GKE] TPU nodepool '$CURRENT_TPU_NODEPOOL_NAME' created."
   else
-     echo "[GKE] Using On-Demand VMs for TPU nodepool."
+    echo "[GKE] TPU nodepool '$CURRENT_TPU_NODEPOOL_NAME' already exists."
   fi
-
-  gcloud container node-pools create "${GCLOUD_NODEPOOL_CREATE_ARGS[@]}"
-  echo "[GKE] TPU nodepool '$TPU_NODEPOOL_NAME' created."
-else
-  echo "[GKE] TPU nodepool '$TPU_NODEPOOL_NAME' already exists."
-fi
+done
 
 echo "[GKE] Checking for Pathways Head nodepool '$PATHWAYS_HEAD_NODEPOOL_NAME' in cluster '$GKE_CLUSTER_NAME'..."
 # Check if nodepool exists, suppressing output
