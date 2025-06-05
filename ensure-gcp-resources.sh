@@ -10,7 +10,7 @@ GCP_NETWORK_NAME_DEFAULT="${USER}-net" # Default network name
 GCP_SUBNET_NAME_DEFAULT="${USER}-subnet" # Default subnet name
 TPU_NODEPOOL_NAME_DEFAULT="tpu-v6e-4x4-pool"
 TPU_TOPOLOGY_DEFAULT="4x4"
-TPU_V6E_NODEPOOL_COUNT_DEFAULT="1" # Default number of v6e nodepools
+TPU_V6E_NODEPOOL_COUNT_DEFAULT="2" # Default number of v6e nodepools
 TPU_MACHINE_TYPE_DEFAULT="ct6e-standard-4t"
 USE_SPOT_TPU_DEFAULT="true" # Default to using Spot VMs for TPUs
 AXLEARN_CONFIG_PATH_DEFAULT="$HOME/.axlearn.config" # Use $HOME which bash expands
@@ -19,7 +19,7 @@ ARTIFACT_REPO_LOCATION="us"
 JOBSET_VERSION="v0.8.1"
 
 # Use environment variables if set, otherwise use defaults
-GKE_CLUSTER_NAME="${CLUSTER:-$GKE_CLUSTER_NAME_DEFAULT}"
+GKE_CLUSTER_NAME="${GKE_CLUSTER:-$GKE_CLUSTER_NAME_DEFAULT}"
 CPU_NODE_COUNT="${CPU_NODE_COUNT:-$CPU_NODE_COUNT_DEFAULT}" # Allow overriding CPU node count
 TPU_NODEPOOL_NAME="${TPU_NODEPOOL_NAME:-$TPU_NODEPOOL_NAME_DEFAULT}"
 TPU_TOPOLOGY="${TPU_TOPOLOGY:-$TPU_TOPOLOGY_DEFAULT}"
