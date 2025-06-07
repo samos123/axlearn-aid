@@ -85,7 +85,7 @@ export CLUSTER=$(axlearn gcp config | grep gke_cluster | \
                  awk '{ print $3 }' | tr -d  '"')
 axlearn gcp launch run --cluster=$CLUSTER \
         --runner_name gke_tpu_pathways \
-        --name=$USER-pathways-headless \
+        --name=$USER \
         --instance_type=tpu-v6e-16 \
         --num_replicas=1 \
         --bundler_spec=allow_dirty=True \
@@ -94,13 +94,19 @@ axlearn gcp launch run --cluster=$CLUSTER \
         -- sleep infinity;
 ```
 
-#### Running a Jax client from your local CLI
+#### Exposing the Pathways cluster using port-forward
+
+You have to setup something like `kubectl port-forward` to expose the pathways-proxy.
 
 Setup a port-forward to the pathways proxy pod:
 
 ```
 kubectl get pods -o name | grep "${USER}.*head-0-0.*" | xargs -I{} kubectl port-forward {} 29000:29000
 ```
+
+
+#### Running a Jax client from your local CLI
+
 
 Now run local jax client:
 ```
@@ -109,19 +115,40 @@ JAX_PLATFORMS=proxy JAX_BACKEND_TARGET=grpc://127.0.0.1:29000 \
   python -c 'import pathwaysutils; import jax; import pprint; pathwaysutils.initialize(); pprint.pprint(jax.devices())'
 ```
 
+#### Running Jax client from VSCode
+
+Create the file `.vscode/launch.json` with the following content in your AXLearn repo:
+```json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Fuji v2 7b flash",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "axlearn/common/launch_trainer_main.py",
+            "args": "--module=text.gpt.c4_trainer --config=fuji-7B-v2-flash --trainer_dir=local-train-dir --data_dir=gs://axlearn-public/tensorflow_datasets  --jax_backend=proxy --mesh_selector=tpu-v6e-16",
+            "console": "integratedTerminal",
+            "env": {
+                "JAX_PLATFORMS": "proxy",
+                "JAX_BACKEND_TARGET": "grpc://127.0.0.1:29000",
+                "PROJECT_ID": "tpu-prod-env-multipod",
+                "TF_CPP_MIN_LOG_LEVEL": "0",
+                "TF_CPP_VMODULE": "grpc_host_buffer=3,rpc_helper=3,host_buffer=3,ifrt_backend=3,grpc_service_impl=3",
+                "TEST_UNDECLARED_OUTPUTS_DIR": "true",
+                "PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT": "30",
+            }
+        },
+    ]
+}
 ```
-python3 -m axlearn.common.launch_trainer_main \
-        --module=text.gpt.c4_trainer --config=fuji-7B-v2-flash \
-          --trainer_dir=/tmp/axlearn \
-          --data_dir=gs://axlearn-public/tensorflow_datasets  \
-          --jax_backend=proxy \
-          --mesh_selector=tpu-v6e-16 \
-          --trace_at_steps=3
-          
+
+Inside VSCode AXLearn directory create the `local-train-dir` directory:
+```
+mkdir -p local-train-dir
 ```
 
-
-
+Now you can go "Run and Debug" and Launch an AXLearn Fuji v2 7B job.
 
 
 ### Launching a regular Fuji/Llama 7B job
