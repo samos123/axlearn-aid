@@ -133,8 +133,9 @@ Create the file `.vscode/launch.json` with the following content in your AXLearn
                 "JAX_PLATFORMS": "proxy",
                 "JAX_BACKEND_TARGET": "grpc://127.0.0.1:29000",
                 "PROJECT_ID": "tpu-prod-env-multipod",
-                "TF_CPP_MIN_LOG_LEVEL": "0",
-                "TF_CPP_VMODULE": "grpc_host_buffer=3,rpc_helper=3,host_buffer=3,ifrt_backend=3,grpc_service_impl=3",
+                // Uncomment below for more extensive logging.
+                // "TF_CPP_MIN_LOG_LEVEL": "0",
+                // "TF_CPP_VMODULE": "grpc_host_buffer=3,rpc_helper=3,host_buffer=3,ifrt_backend=3,grpc_service_impl=3",
                 "TEST_UNDECLARED_OUTPUTS_DIR": "true",
                 "PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT": "30",
             }
