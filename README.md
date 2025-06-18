@@ -43,7 +43,8 @@ axlearn gcp config activate
 
 Set the environment variables to match your environment:
 ```
-export CLUSTER=${CLUSTER:-$USER-axlearn}
+export CLUSTER=$(axlearn gcp config | grep gke_cluster | \
+                 awk '{ print $3 }' | tr -d  '"')
 export BASTION_TIER=disabled
 export PROJECT_ID=$(gcloud config get project)
 ```
