@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: tpu-host-cleanup-daemonset
+  labels:
+    app: tpu-host-cleanup
+spec:
+  # The selector for the pods that this DaemonSet manages.
+  selector:
+    matchLabels:
+      app: tpu-host-cleanup
+  # The pod template. This is the blueprint for the pods the DaemonSet creates.
+  template:
+    metadata:
+      # Labels applied to each pod. Must match spec.selector.matchLabels.
+      labels:
+        app: tpu-host-cleanup
+    spec:
+      # --- Scheduling on TPU Nodes ---
+      # These rules ensure pods are only scheduled on the correct TPU nodes.
+      nodeSelector:
+        beta.kubernetes.io/instance-type: "ct6e-standard-4t"
+      tolerations:
+      - key: "google.com/tpu"
+        operator: "Equal"
+        value: "present"
+        effect: "NoSchedule"
+
+      # --- Container Definition ---
+      containers:
+      - name: cleanup-container
+        image: busybox:1.36
+        # The command cleans the directory and then sleeps forever to keep the pod running.
+        command:
+          - "/bin/sh"
+          - "-c"
+          - >
+            echo "Attempting to delete /host-tmp/checkpoints..." &&
+            rm -rf /host-tmp/checkpoints &&
+            echo "Cleanup complete. Pod will now sleep indefinitely." &&
+            sleep infinity
+        
+        # Mounts the host directory into the container.
+        volumeMounts:
+        - name: host-tmp-dir
+          mountPath: /host-tmp
+
+      # --- Volume Definition ---
+      volumes:
+      - name: host-tmp-dir
+        hostPath:
+          path: /tmp
+          type: Directory

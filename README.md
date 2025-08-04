@@ -202,6 +202,9 @@ axlearn gcp launch run --cluster=$CLUSTER \
 
 Launching with Pathways:
 ```
+export CLUSTER=$(axlearn gcp config | grep gke_cluster | \
+                 awk '{ print $3 }' | tr -d  '"')
+export PROJECT_ID=$(gcloud config get project)
 axlearn gcp bundle --name=$USER \
         --bundler_spec=allow_dirty=True \
         --bundler_type=artifactregistry \
