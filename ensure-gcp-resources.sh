@@ -2,16 +2,17 @@
 
 # --- Configuration & Defaults ---
 GKE_CLUSTER_NAME_DEFAULT="${USER}-axlearn" # Default cluster name using system username
-GCP_REGION="us-east5"
-GCP_ZONE="us-east5-b"
+GCP_REGION_DEFAULT="us-east5"
+GCP_ZONE_DEFAULT="us-east5-b"
 CPU_NODE_MACHINE_TYPE="e2-standard-8" # Updated default CPU machine type
 CPU_NODE_COUNT_DEFAULT="2" # Default CPU node count
 GCP_NETWORK_NAME_DEFAULT="${USER}-net" # Default network name
 GCP_SUBNET_NAME_DEFAULT="${USER}-subnet" # Default subnet name
 TPU_NODEPOOL_NAME_DEFAULT="tpu-v6e-4x4-pool"
 TPU_TOPOLOGY_DEFAULT="4x4"
-TPU_V6E_NODEPOOL_COUNT_DEFAULT="2" # Default number of v6e nodepools
+TPU_NODEPOOL_COUNT_DEFAULT="2" # Default number of nodepools
 TPU_MACHINE_TYPE_DEFAULT="ct6e-standard-4t"
+TPU_TYPE_LABEL_DEFAULT="tpu-v6e" # Default TPU label for axlearn config
 USE_SPOT_TPU_DEFAULT="true" # Default to using Spot VMs for TPUs
 AXLEARN_CONFIG_PATH_DEFAULT="$HOME/.axlearn.config" # Use $HOME which bash expands
 ARTIFACT_REPO_NAME="axlearn"
@@ -23,9 +24,12 @@ GKE_CLUSTER_NAME="${GKE_CLUSTER:-$GKE_CLUSTER_NAME_DEFAULT}"
 CPU_NODE_COUNT="${CPU_NODE_COUNT:-$CPU_NODE_COUNT_DEFAULT}" # Allow overriding CPU node count
 TPU_NODEPOOL_NAME="${TPU_NODEPOOL_NAME:-$TPU_NODEPOOL_NAME_DEFAULT}"
 TPU_TOPOLOGY="${TPU_TOPOLOGY:-$TPU_TOPOLOGY_DEFAULT}"
-TPU_V6E_NODEPOOL_COUNT="${TPU_V6E_NODEPOOL_COUNT:-$TPU_V6E_NODEPOOL_COUNT_DEFAULT}"
+TPU_NODEPOOL_COUNT="${TPU_NODEPOOL_COUNT:-$TPU_NODEPOOL_COUNT_DEFAULT}"
 TPU_MACHINE_TYPE="${TPU_MACHINE_TYPE:-$TPU_MACHINE_TYPE_DEFAULT}"
+TPU_TYPE_LABEL="${TPU_TYPE_LABEL:-$TPU_TYPE_LABEL_DEFAULT}"
 USE_SPOT_TPU="${USE_SPOT_TPU:-$USE_SPOT_TPU_DEFAULT}" # Allow overriding Spot usage
+GCP_REGION="${GCP_REGION:-$GCP_REGION_DEFAULT}"
+GCP_ZONE="${GCP_ZONE:-$GCP_ZONE_DEFAULT}"
 GCP_NETWORK_NAME="${GCP_NETWORK_NAME:-$GCP_NETWORK_NAME_DEFAULT}" # Allow overriding network name
 GCP_SUBNET_NAME="${GCP_SUBNET_NAME:-$GCP_SUBNET_NAME_DEFAULT}" # Allow overriding subnet name
 AXLEARN_CONFIG_PATH="${AXLEARN_CONFIG_PATH:-$AXLEARN_CONFIG_PATH_DEFAULT}"
@@ -64,8 +68,9 @@ echo "GKE Cluster:         $GKE_CLUSTER_NAME"
 echo "CPU Machine Type:    $CPU_NODE_MACHINE_TYPE"
 echo "CPU Node Count:      $CPU_NODE_COUNT"
 echo "TPU Nodepool Base:   $TPU_NODEPOOL_NAME"
-echo "TPU v6e Nodepool Count: $TPU_V6E_NODEPOOL_COUNT"
+echo "TPU Nodepool Count:  $TPU_NODEPOOL_COUNT"
 echo "TPU Machine Type:    $TPU_MACHINE_TYPE"
+echo "TPU Type Label:      $TPU_TYPE_LABEL"
 echo "TPU Topology:        $TPU_TOPOLOGY"
 echo "TPU Use Spot VMs:    $USE_SPOT_TPU"
 echo "GCS Bucket:          $BUCKET_NAME"
@@ -113,24 +118,32 @@ if ! gcloud container clusters describe "$GKE_CLUSTER_NAME" --region "$GCP_REGIO
     --enable-ip-alias \
     --enable-dataplane-v2 --enable-ip-alias --enable-multi-networking \
     --scopes "https://www.googleapis.com/auth/cloud-platform" \
-    --release-channel=rapid \
-    --network-performance-configs=total-egress-bandwidth-tier=TIER_1
+    --release-channel=rapid
   echo "[GKE] Cluster '$GKE_CLUSTER_NAME' created."
 else
   echo "[GKE] Cluster '$GKE_CLUSTER_NAME' already exists."
 fi
 
-for i in $(seq 1 "$TPU_V6E_NODEPOOL_COUNT"); do
+for i in $(seq 1 "$TPU_NODEPOOL_COUNT"); do
   CURRENT_TPU_NODEPOOL_NAME="${TPU_NODEPOOL_NAME}-${i}" # e.g., tpu-v6e-4x4-pool-1
 
-  echo "[GKE] Checking for TPU nodepool '$CURRENT_TPU_NODEPOOL_NAME' in cluster '$GKE_CLUSTER_NAME' (Instance $i of $TPU_V6E_NODEPOOL_COUNT)..."
+  echo "[GKE] Checking for TPU nodepool '$CURRENT_TPU_NODEPOOL_NAME' in cluster '$GKE_CLUSTER_NAME' (Instance $i of $TPU_NODEPOOL_COUNT)..."
   # Check if nodepool exists
   gcloud container node-pools describe "$CURRENT_TPU_NODEPOOL_NAME" --cluster "$GKE_CLUSTER_NAME" --region "$GCP_REGION" --project "$PROJECT_ID" &> /dev/null # Suppress output for check
 
   if [[ $? -ne 0 ]]; then
     # Calculate num_nodes based on topology (this seems to be per-nodepool)
-    IFS='x' read -r dim1 dim2 <<< "$TPU_TOPOLOGY"
-    num_nodes=$(( (10#$dim1 * 10#$dim2) / 4 ))
+    # This handles both 2D and 3D topologies.
+    IFS='x' read -r -a dims <<< "$TPU_TOPOLOGY"
+    total_chips=1
+    for dim in "${dims[@]}"; do
+      total_chips=$((total_chips * dim))
+    done
+    # Assuming 4 chips per node for ct5p and ct6e machine types.
+    num_nodes=$((total_chips / 4))
+    if [[ $num_nodes -eq 0 ]]; then
+      num_nodes=1 # Ensure at least one node for topologies smaller than 4 chips.
+    fi
     echo "[GKE] Calculated num_nodes: $num_nodes for nodepool '$CURRENT_TPU_NODEPOOL_NAME' based on topology $TPU_TOPOLOGY"
 
     GCLOUD_NODEPOOL_CREATE_ARGS=(
@@ -219,7 +232,6 @@ fi
 echo "[AXLearn Config] Ensuring configuration in '$AXLEARN_CONFIG_PATH'..."
 
 # Define the config block content using printf
-# TODO ensure label matches actual tpu type used
 AXLEARN_CONFIG_BLOCK=$(printf "%s\n" \
   "$CONFIG_SECTION_HEADER" \
   "project = \"$PROJECT_ID\"" \
@@ -227,7 +239,7 @@ AXLEARN_CONFIG_BLOCK=$(printf "%s\n" \
   "zone = \"$GCP_ZONE\"" \
   "gke_cluster = \"$GKE_CLUSTER_NAME\"" \
   "cluster = \"$GKE_CLUSTER_NAME\"" \
-  "labels = \"tpu-v6e\"" \
+  "labels = \"$TPU_TYPE_LABEL\"" \
   "docker_repo = \"$DOCKER_REPO\"" \
   "default_dockerfile = \"Dockerfile\"" \
   "permanent_bucket = \"${PROJECT_ID}-axlearn\"" \
