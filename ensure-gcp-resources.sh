@@ -250,6 +250,11 @@ AXLEARN_CONFIG_BLOCK=$(printf "%s\n" \
 # Ensure the directory exists (though $HOME should exist)
 mkdir -p "$(dirname "$AXLEARN_CONFIG_PATH")"
 
+echo "[AXLearn Config] The following configuration will be added to '$AXLEARN_CONFIG_PATH':"
+echo "---"
+echo "$AXLEARN_CONFIG_BLOCK"
+echo "---"
+
 if [[ -f "$AXLEARN_CONFIG_PATH" ]]; then
   echo "[AXLearn Config] File exists. Checking for section '$CONFIG_SECTION_HEADER'..."
   # Use grep -F for fixed string matching and -q for quiet mode
