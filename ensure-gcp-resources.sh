@@ -32,7 +32,7 @@ AXLEARN_CONFIG_PATH="${AXLEARN_CONFIG_PATH:-$AXLEARN_CONFIG_PATH_DEFAULT}"
 
 # Pathways Head Nodepool Configuration
 PATHWAYS_HEAD_NODEPOOL_NAME="pathways-head"
-PATHWAYS_HEAD_MACHINE_TYPE="n2-standard-32"
+PATHWAYS_HEAD_MACHINE_TYPE="n2-standard-92"
 PATHWAYS_HEAD_MIN_NODES=0
 PATHWAYS_HEAD_MAX_NODES=10
 
@@ -113,7 +113,8 @@ if ! gcloud container clusters describe "$GKE_CLUSTER_NAME" --region "$GCP_REGIO
     --enable-ip-alias \
     --enable-dataplane-v2 --enable-ip-alias --enable-multi-networking \
     --scopes "https://www.googleapis.com/auth/cloud-platform" \
-    --release-channel=rapid
+    --release-channel=rapid \
+    --network-performance-configs=total-egress-bandwidth-tier=TIER_1
   echo "[GKE] Cluster '$GKE_CLUSTER_NAME' created."
 else
   echo "[GKE] Cluster '$GKE_CLUSTER_NAME' already exists."
@@ -175,7 +176,8 @@ if [[ $? -ne 0 ]]; then
     --min-nodes "$PATHWAYS_HEAD_MIN_NODES" \
     --max-nodes "$PATHWAYS_HEAD_MAX_NODES" \
     --scopes "https://www.googleapis.com/auth/cloud-platform" \
-    --node-labels=axlearn/nodepool_type=workload
+    --node-labels=axlearn/nodepool_type=workload \
+    --network-performance-configs=total-egress-bandwidth-tier=TIER_1
   echo "[GKE] Pathways Head nodepool '$PATHWAYS_HEAD_NODEPOOL_NAME' created."
 else
   echo "[GKE] Pathways Head nodepool '$PATHWAYS_HEAD_NODEPOOL_NAME' already exists."
