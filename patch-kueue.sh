@@ -25,45 +25,75 @@ TPU_QUOTA=$(echo "$tpu_flavor_details" | jq '.resources[] | select(.name=="googl
 
 # Extract details for the CPU/Memory flavor.
 cpu_flavor_details=$(echo "$cq_json" | jq '.spec.resourceGroups[] | select(.coveredResources[] == "cpu") | .flavors[0]')
-CPU_FLAVOR_NAME=$(echo "$cpu_flavor_details" | jq -r '.name')
-CPU_QUOTA=$(echo "$cpu_flavor_details" | jq '.resources[] | select(.name=="cpu") | .nominalQuota')
-MEMORY_QUOTA=$(echo "$cpu_flavor_details" | jq '.resources[] | select(.name=="memory") | .nominalQuota')
 
 # 3. Build the JSON patch using the extracted variables.
 echo "🛠️  Building the dynamic patch..."
-patch_json=$(jq -n \
-  --arg tpu_flavor_name "$TPU_FLAVOR_NAME" \
-  --argjson tpu_quota "$TPU_QUOTA" \
-  --arg cpu_flavor_name "$CPU_FLAVOR_NAME" \
-  --argjson cpu_quota "$CPU_QUOTA" \
-  --argjson memory_quota "$MEMORY_QUOTA" \
-  '{
-    "spec": {
-      "resourceGroups": [
-        {
-          "coveredResources": ["cpu", "memory", "google.com/tpu"],
-          "flavors": [
-            {
-              "name": $cpu_flavor_name,
-              "resources": [
-                {"name": "cpu", "nominalQuota": $cpu_quota},
-                {"name": "memory", "nominalQuota": $memory_quota},
-                {"name": "google.com/tpu", "nominalQuota": 0}
-              ]
-            },
-            {
-              "name": $tpu_flavor_name,
-              "resources": [
-                {"name": "cpu", "nominalQuota": 999999999999},
-                {"name": "memory", "nominalQuota": "999999999999G"},
-                {"name": "google.com/tpu", "nominalQuota": $tpu_quota}
-              ]
-            }
-          ]
-        }
-      ]
-    }
-  }')
+
+if [[ -z "$cpu_flavor_details" || "$cpu_flavor_details" == "null" ]]; then
+  echo "⚙️  CPU/Memory flavor not found. Patching single TPU flavor with CPU and Memory."
+  patch_json=$(jq -n \
+    --arg tpu_flavor_name "$TPU_FLAVOR_NAME" \
+    --argjson tpu_quota "$TPU_QUOTA" \
+    '{
+      "spec": {
+        "resourceGroups": [
+          {
+            "coveredResources": ["cpu", "memory", "google.com/tpu"],
+            "flavors": [
+              {
+                "name": $tpu_flavor_name,
+                "resources": [
+                  {"name": "cpu", "nominalQuota": 999999999999},
+                  {"name": "memory", "nominalQuota": "999999999999G"},
+                  {"name": "google.com/tpu", "nominalQuota": $tpu_quota}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }')
+else
+  echo "⚙️  CPU/Memory and TPU flavors found. Patching both."
+  CPU_FLAVOR_NAME=$(echo "$cpu_flavor_details" | jq -r '.name')
+  CPU_QUOTA=$(echo "$cpu_flavor_details" | jq '.resources[] | select(.name=="cpu") | .nominalQuota')
+  MEMORY_QUOTA=$(echo "$cpu_flavor_details" | jq '.resources[] | select(.name=="memory") | .nominalQuota')
+
+  patch_json=$(jq -n \
+    --arg tpu_flavor_name "$TPU_FLAVOR_NAME" \
+    --argjson tpu_quota "${TPU_QUOTA:-null}" \
+    --arg cpu_flavor_name "$CPU_FLAVOR_NAME" \
+    --argjson cpu_quota "${CPU_QUOTA:-null}" \
+    --argjson memory_quota "${MEMORY_QUOTA:-null}" \
+    '{
+      "spec": {
+        "resourceGroups": [
+          {
+            "coveredResources": ["cpu", "memory", "google.com/tpu"],
+            "flavors": [
+              {
+                "name": $cpu_flavor_name,
+                "resources": [
+                  {"name": "cpu", "nominalQuota": $cpu_quota},
+                  {"name": "memory", "nominalQuota": $memory_quota},
+                  {"name": "google.com/tpu", "nominalQuota": 0}
+                ]
+              },
+              {
+                "name": $tpu_flavor_name,
+                "resources": [
+                  {"name": "cpu", "nominalQuota": 999999999999},
+                  {"name": "memory", "nominalQuota": "999999999999G"},
+                  {"name": "google.com/tpu", "nominalQuota": $tpu_quota}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }')
+fi
+
 
 # 4. Apply the patch.
 echo "🚀 Applying the patch to ClusterQueue '$CQ_NAME'..."
