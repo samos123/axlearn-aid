@@ -80,6 +80,7 @@ There are 2 steps:
 
 #### Creating a Headless Pathways cluster
 
+Without colocated python on v6e-16:
 ```
 export CLUSTER=$(axlearn gcp config | grep gke_cluster | \
                  awk '{ print $3 }' | tr -d  '"')
@@ -91,6 +92,22 @@ axlearn gcp launch run --cluster=$CLUSTER \
         --bundler_spec=allow_dirty=True \
         --bundler_type=artifactregistry --bundler_spec=image=tpu \
         --bundler_spec=dockerfile=Dockerfile --bundler_spec=target=tpu \
+        -- sleep infinity;
+```
+
+With colocated python on TPU 7x-16:
+```
+export CLUSTER=$(axlearn gcp config | grep gke_cluster | \
+                 awk '{ print $3 }' | tr -d  '"')
+axlearn gcp launch run --cluster=$CLUSTER \
+        --runner_name gke_tpu_pathways \
+        --name=$USER-pw-interactive \
+        --instance_type=tpu-7x-16 \
+        --num_replicas=1 \
+        --bundler_spec=allow_dirty=True \
+        --bundler_type=artifactregistry --bundler_spec=image=tpu \
+        --bundler_spec=dockerfile=Dockerfile --bundler_spec=target=tpu \
+        --bundler_spec=sidecars=colocated-python \
         -- sleep infinity;
 ```
 
